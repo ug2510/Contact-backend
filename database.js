@@ -2,6 +2,7 @@ import sql from "mssql";
 import dotenv from "dotenv";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
+import { executeQuery } from "./queryExecutor.js";
 
 dotenv.config();
 
@@ -29,23 +30,21 @@ async function getDbPool() {
   return poolPromise;
 }
 
+
 export async function getAllDeletedContacts() {
   try {
     const pool = await getDbPool();
-    console.log(`Connected to the database successfully as ${globalUsername}.`);
-
     if (!globalUsername) {
       throw new Error("No username is set in globalUsername.");
     }
 
-    const result = await pool
-      .request()
-      .input("owner", sql.VarChar, globalUsername)
-      .query("SELECT * FROM ContactList WHERE Activity = 0 AND owner = @owner");
+    const query = "SELECT * FROM ContactList WHERE Activity = 0 AND owner = ?";
+    const inputs = [{ type: sql.VarChar, value: globalUsername }];
 
+    const result = await executeQuery(pool, query, inputs);
     return result.recordset;
   } catch (err) {
-    console.error("Database query failed:", err);
+    console.error("Error in getAllDeletedContacts:", err);
     throw err;
   }
 }
@@ -53,20 +52,17 @@ export async function getAllDeletedContacts() {
 export async function getAllContacts() {
   try {
     const pool = await getDbPool();
-    console.log(`Connected to the database successfully as ${globalUsername}.`);
-
     if (!globalUsername) {
       throw new Error("No username is set in globalUsername.");
     }
 
-    const result = await pool
-      .request()
-      .input("owner", sql.VarChar, globalUsername)
-      .query("SELECT * FROM ContactList WHERE Activity = 1 AND owner = @owner");
+    const query = "SELECT * FROM ContactList WHERE Activity = 1 AND owner = ?";
+    const inputs = [{ type: sql.VarChar, value: globalUsername }];
 
+    const result = await executeQuery(pool, query, inputs);
     return result.recordset;
   } catch (err) {
-    console.error("Database query failed:", err);
+    console.error("Error in getAllContacts:", err);
     throw err;
   }
 }
@@ -78,22 +74,22 @@ export async function updateContactByPhone(phone, name, email) {
     }
 
     const pool = await getDbPool();
-    console.log(`Connected to the database successfully as ${globalUsername}.`);
-    console.log("Input Parameters:", { phone, name, email });
 
-    const result = await pool
-      .request()
-      .input("phone", sql.VarChar, phone)
-      .input("name", sql.VarChar, name)
-      .input("email", sql.VarChar, email).query(`
-        UPDATE ContactList
-        SET name = @name, email = @email
-        WHERE phnumber = @phone
-      `);
+    const query = `
+      UPDATE ContactList
+      SET name = ?, email = ?
+      WHERE phnumber = ?
+    `;
+    const inputs = [
+      { type: sql.VarChar, value: name },
+      { type: sql.VarChar, value: email },
+      { type: sql.VarChar, value: phone },
+    ];
 
+    const result = await executeQuery(pool, query, inputs);
     return result;
   } catch (err) {
-    console.error("Database update failed:", err);
+    console.error("Error in updateContactByPhone:", err);
     throw err;
   }
 }
@@ -101,115 +97,107 @@ export async function updateContactByPhone(phone, name, email) {
 export async function getContactByPhone(name) {
   try {
     const pool = await getDbPool();
-    console.log(`Connected to the database successfully as ${globalUsername}.`);
 
-    const result = await pool
-      .request()
-      .input("name", sql.VarChar, `%${name}%`)
-      .query("SELECT * FROM ContactList WHERE name LIKE @name");
+    const query = "SELECT * FROM ContactList WHERE name LIKE ?";
+    const inputs = [{ type: sql.VarChar, value: `%${name}%` }];
+
+    const result = await executeQuery(pool, query, inputs);
     return result.recordset;
   } catch (err) {
-    console.error("Database query failed:", err);
+    console.error("Error in getContactByName:", err);
+    throw err;
   }
 }
 
 export async function getContactByPhoneNo(phnumber) {
   try {
     const pool = await getDbPool();
-    console.log(`Connected to the database successfully as ${globalUsername}.`);
 
-    const result = await pool
-      .request()
-      .input("phnumber", sql.VarChar, phnumber)
-      .query("SELECT * FROM ContactList WHERE phnumber = @phnumber");
+    const query = "SELECT * FROM ContactList WHERE phnumber = ?";
+    const inputs = [{ type: sql.VarChar, value: phnumber }];
+
+    const result = await executeQuery(pool, query, inputs);
     return result.recordset;
   } catch (err) {
-    console.error("Database query failed:", err);
+    console.error("Error in getContactByPhoneNo:", err);
+    throw err;
   }
 }
 
 export async function InsertNew(name, email, phnumber) {
   try {
     const pool = await getDbPool();
-    const Activity = 1;
-    console.log("Activity value set to:", Activity);
 
-    const result = await pool
-      .request()
-      .input("name", sql.VarChar, name)
-      .input("email", sql.VarChar, email)
-      .input("phnumber", sql.VarChar, phnumber)
-      .input("owner", sql.VarChar, globalUsername)
-      .input("Activity", sql.Int, Activity) 
-      .query(
-        `INSERT INTO ContactList (name, email, phnumber, owner, Activity) 
-         VALUES (@name, @email, @phnumber, @owner, @Activity)`
-      );
+    const query = `
+      INSERT INTO ContactList (name, email, phnumber, owner, Activity)
+      VALUES (?, ?, ?, ?, ?)
+    `;
+    const inputs = [
+      { type: sql.VarChar, value: name },
+      { type: sql.VarChar, value: email },
+      { type: sql.VarChar, value: phnumber },
+      { type: sql.VarChar, value: globalUsername },
+      { type: sql.Int, value: 1 },
+    ];
 
-    console.log("Insert successful! Result:", result);
+    const result = await executeQuery(pool, query, inputs);
     return result;
   } catch (err) {
-    console.error("Database insert failed:", err.message);
-
-    console.error("Debugging Info: Pool or Query might have issues.");
-
-    throw err; 
+    console.error("Error in InsertNew:", err);
+    throw err;
   }
 }
 
 export async function InsertNewUser(name, email, phnumber, address, password) {
   try {
-    const salt = await bcrypt.genSalt(10); // Generate salt for hashing
-    const hashedPassword = await bcrypt.hash(password, salt); // Hash the password
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(password, salt);
 
     const pool = await getDbPool();
-    console.log(`Connected to the database successfully as ${globalUsername}.`);
 
-    const result = await pool
-      .request()
-      .input("name", sql.VarChar, name)
-      .input("email", sql.VarChar, email)
-      .input("phnumber", sql.VarChar, phnumber)
-      .input("address", sql.VarChar, address)
-      .input("password", sql.VarChar, hashedPassword)
-      .query(
-        "INSERT INTO AuthTable (name, email, phnumber, address, password) VALUES (@name, @email, @phnumber, @address, @password)"
-      );
+    const query = `
+      INSERT INTO AuthTable (name, email, phnumber, address, password)
+      VALUES (?, ?, ?, ?, ?)
+    `;
+    const inputs = [
+      { type: sql.VarChar, value: name },
+      { type: sql.VarChar, value: email },
+      { type: sql.VarChar, value: phnumber },
+      { type: sql.VarChar, value: address },
+      { type: sql.VarChar, value: hashedPassword },
+    ];
+
+    const result = await executeQuery(pool, query, inputs);
     return result;
   } catch (err) {
-    console.error("Database insert failed:", err);
+    console.error("Error in InsertNewUser:", err);
+    throw err;
   }
 }
 
 export async function loginUser(email, password) {
   try {
     const pool = await getDbPool();
-    console.log("Connected to the database successfully.");
 
-    const result = await pool
-      .request()
-      .input("email", sql.VarChar, email)
-      .query("SELECT * FROM AuthTable WHERE email = @email");
+    const query = "SELECT * FROM AuthTable WHERE email = ?";
+    const inputs = [{ type: sql.VarChar, value: email }];
+
+    const result = await executeQuery(pool, query, inputs);
 
     if (result.recordset.length === 0) {
       throw new Error("User not found");
     }
 
     const user = result.recordset[0];
-    const username = user.name;
-    //const email = user.email;
-    const phnumber = user.phnumber;
-    const address = user.address;
-
     const isMatch = await bcrypt.compare(password, user.password);
 
     if (!isMatch) {
       throw new Error("Invalid credentials");
     }
-    globalUsername = username;
-    globalAddress = address;
-    globalPhnumber = phnumber;
-    //globalEmail = email;
+
+    globalUsername = user.name;
+    globalAddress = user.address;
+    globalPhnumber = user.phnumber;
 
     const token = jwt.sign(
       { id: user.id, name: user.name, email: user.email },
@@ -217,9 +205,9 @@ export async function loginUser(email, password) {
       { expiresIn: "1h" }
     );
 
-    return { token, username };
+    return { token, username: user.name };
   } catch (err) {
-    console.error("Login failed:", err);
+    console.error("Error in loginUser:", err);
     throw err;
   }
 }
@@ -227,16 +215,16 @@ export async function loginUser(email, password) {
 export async function DeactivateContactById(phnumber) {
   try {
     const pool = await getDbPool();
-    console.log(`Connected to the database successfully as ${globalUsername}.`);
 
-    const result = await pool
-      .request()
-      .input("phnumber", sql.VarChar, phnumber)
-      .query("UPDATE ContactList SET Activity = 0 WHERE phnumber = @phnumber");
+    const query = "UPDATE ContactList SET Activity = 0 WHERE phnumber = ?";
+    const inputs = [{ type: sql.VarChar, value: phnumber }];
 
+    const result = await executeQuery(pool, query, inputs);
     return result;
   } catch (err) {
-    console.error("Database update failed:", err);
+    console.error("Error in DeactivateContactById:", err);
+    throw err;
   }
 }
+
 export { globalUsername, globalPhnumber, globalAddress };
