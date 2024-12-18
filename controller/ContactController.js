@@ -94,33 +94,41 @@ export const createContactUser = asyncHandler(async (req, res) => {
       "Missing required fields: name, email, phnumber, and address."
     );
   }
+
+  // Validate phone number
   if (!/^\d+$/.test(phnumber) || phnumber.length !== 10) {
     res.status(400);
     throw new Error("Phone number must be a valid 10-digit integer.");
   }
 
-  if (!/^[a-zA-Z\s]+$/.test(name)) {
+  // Validate name (letters and spaces, but not only spaces)
+  const trimmedName = name.trim();
+  if (!/^[a-zA-Z\s]+$/.test(trimmedName) || trimmedName.length === 0) {
     res.status(400);
-    throw new Error("Name must only contain letters and spaces.");
+    throw new Error("Name must only contain letters and spaces, and cannot be empty.");
   }
+
+  // Validate email
   if (!validator.isEmail(email)) {
     res.status(400);
     throw new Error("Invalid email format.");
   }
 
-  const result = await InsertNewUser(name, email, phnumber, address, password);
+  // Insert into database
+  const result = await InsertNewUser(trimmedName, email, phnumber, address, password);
 
   if (result && result.rowsAffected && result.rowsAffected[0] > 0) {
     res.status(201).json({
       success: true,
       message: "Contact added successfully.",
-      contact: { name, email, phnumber, address },
+      contact: { name: trimmedName, email, phnumber, address },
     });
   } else {
     res.status(500);
     throw new Error("Failed to insert the contact into the database.");
   }
 });
+
 
 export const loginController = asyncHandler(async (req, res) => {
   const { email, password } = req.body;
