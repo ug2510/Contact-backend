@@ -175,6 +175,7 @@ export async function InsertNewUser(name, email, phnumber, address, password) {
   }
 }
 
+
 export async function loginUser(email, password) {
   try {
     const pool = await getDbPool();

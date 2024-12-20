@@ -18,6 +18,7 @@
     "express": "^4.21.1",
     "express-async-handler": "^1.2.0",
     "flatted": "^3.3.2",
+    "ioredis": "^5.4.1",
     "jsonwebtoken": "^9.0.2",
     "msnodesqlv8": "^4.4.0",
     "mssql": "^11.0.1",
