@@ -1,3 +1,11 @@
+// export { InsertNew } from "./addContact.js";
+// export { DeactivateContactById, getAllDeletedContacts } from "./deleteContact.js";
+// export { updateContactByPhone } from "./updateContact.js";
+// export { InsertNewUser, loginUser } from "./auth.js";
+// export { getAllContacts, getContactByPhone, getContactByPhoneNo } from "./fetchContact.js";
+// export { globalUsername, globalPhnumber, globalAddress, globalEmail } from "./globals.js";
+
+
 import sql from "mssql";
 import dotenv from "dotenv";
 import bcrypt from "bcryptjs";
